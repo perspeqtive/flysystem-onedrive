@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace Justus\FlysystemOneDrive;
+namespace Justus\FlysystemOneDrive\Flysystem;
 
-use League\Flysystem\FilesystemAdapter;
+use Exception;
 use League\Flysystem\Config;
-use League\Flysystem\FileAttributes;
 use League\Flysystem\DirectoryAttributes;
+use League\Flysystem\FileAttributes;
+use League\Flysystem\FilesystemAdapter;
 use League\Flysystem\StorageAttributes;
 use League\Flysystem\UnableToReadFile;
-use League\Flysystem\UnableToSetVisibility;
 use League\Flysystem\UnableToRetrieveMetadata;
+use League\Flysystem\UnableToSetVisibility;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Model\Directory;
 use Microsoft\Graph\Model\DriveItem;
 use Microsoft\Graph\Model\File;
 use Microsoft\Graph\Model\UploadSession;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Exception;
 use stdClass;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class OneDriveAdapter implements FilesystemAdapter
 {
@@ -195,7 +195,7 @@ class OneDriveAdapter implements FilesystemAdapter
         throw UnableToSetVisibility::atLocation($path, 'Unsupported Operation');
     }
 
-    public function visibility(string $path): FileAttributes
+    public function visibility(string $path): DirectoryAttributes
     {
         throw UnableToRetrieveMetadata::visibility($path, 'Unsupported Operation');
     }
@@ -228,22 +228,22 @@ class OneDriveAdapter implements FilesystemAdapter
             ->execute();
     }
 
-    public function mimeType(string $path): FileAttributes
+    public function mimeType(string $path): DirectoryAttributes
     {
         $file = $this->getFile($path);
-        return new FileAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp(), $file->getFile()->getMimeType());
+        return new DirectoryAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp(), $file->getFile()->getMimeType());
     }
 
-    public function lastModified(string $path): FileAttributes
+    public function lastModified(string $path): DirectoryAttributes
     {
         $file = $this->getDriveItem($path);
-        return new FileAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp());
+        return new DirectoryAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp());
     }
 
-    public function fileSize(string $path): FileAttributes
+    public function fileSize(string $path): DirectoryAttributes
     {
         $file = $this->getFile($path);
-        return new FileAttributes($path, $file->getSize());
+        return new DirectoryAttributes($path, $file->getSize());
     }
 
     public function getDriveItem(string $path): DriveItem
@@ -255,7 +255,7 @@ class OneDriveAdapter implements FilesystemAdapter
     }
 
     /**
-     * @return iterable<FileAttributes|DirectoryAttributes>
+     * @return DirectoryAttributes
      * @throws \Exception
      */
     public function listContents(string $path, bool $deep = true): iterable
@@ -307,7 +307,7 @@ class OneDriveAdapter implements FilesystemAdapter
      * Konvertiert DriveItems in Flysystem StorageAttributes
      *
      * @param DriveItem[] $driveItems
-     * @return array<int, FileAttributes|DirectoryAttributes>
+     * @return DirectoryAttributes
      */
     protected function convertDriveItemsToStorageAttributes(array $driveItems): array
     {
