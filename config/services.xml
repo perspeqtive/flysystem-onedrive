@@ -7,12 +7,27 @@
     <services>
         <service class="Microsoft\Graph\Graph" id="microsoft.graph.graph"/>
 
-        <service class="PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveAdapter" id="perspeqtive.flysystem_one_drive.flysystem.one_drive_adapter">
+        <service class="PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveAdapter"
+                 id="perspeqtive.flysystem_one_drive.flysystem.one_drive_adapter">
             <argument key="$graph" id="microsoft.graph.graph" type="service"/>
             <argument key="$drive">%perspeqtive_flysystem.onedrive.drive%</argument>
             <argument key="$httpClient" id="Symfony\Contracts\HttpClient\HttpClientInterface" type="service"/>
             <argument key="$options">%perspeqtive_flysystem.onedrive.options%</argument>
         </service>
+
+        <service class="PERSPEQTIVE\FlysystemOneDrive\Token\TokenProvider"
+                 id="perspeqtive.flysystem_one_drive.token.token_provider">
+            <argument key="$httpClient" id="Symfony\Contracts\HttpClient\HttpClientInterface" type="service"/>
+        </service>
+
+
+        <service class="PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveFlysystemFactory"
+                 id="perspeqtive.flysystem_one_drive.flysystem.one_drive_flysystem_factory">
+            <argument key="$tokenProvider" id="perspeqtive.flysystem_one_drive.token.token_provider" type="service"/>
+            <argument key="$httpClient" id="Symfony\Contracts\HttpClient\HttpClientInterface" type="service"/>
+            <argument key="$options">%perspeqtive_flysystem.drives%</argument>
+        </service>
+
 
     </services>
 </container>
