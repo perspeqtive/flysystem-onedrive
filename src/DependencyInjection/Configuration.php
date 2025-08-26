@@ -11,7 +11,7 @@ class Configuration implements ConfigurationInterface
 {
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('perspeqtive_flysystem');
+        $treeBuilder = new TreeBuilder('flysystem_onedrive_adapter');
 
         $rootNode = $treeBuilder->getRootNode();
         $rootNode

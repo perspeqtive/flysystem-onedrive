@@ -14,7 +14,7 @@ class FlysystemOnedriveAdapterExtension extends Extension
         $configuration = new Configuration();
         $config = $this->processConfiguration($configuration, $configs);
 
-        $container->setParameter('perspeqtive_flysystem.onedrive.drive', $config['flysystem']['onedrive']['drive']);
-        $container->setParameter('perspeqtive_flysystem.onedrive.options', $config['flysystem']['onedrive']['options']);
+        $container->setParameter('perspeqtive_flysystem.onedrive.drive', $config['onedrive']['drive']);
+        $container->setParameter('perspeqtive_flysystem.onedrive.options', $config['onedrive']['options']);
     }
 }
