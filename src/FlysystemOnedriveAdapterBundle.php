@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace PERSPEQTIVE\FlysystemOneDrive;
 
+use PERSPEQTIVE\FlysystemOneDrive\DependencyInjection\RegisterOneDriveAdaptersPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
@@ -13,6 +14,8 @@ class FlysystemOnedriveAdapterBundle extends Bundle
     public function build(ContainerBuilder $container)
     {
         parent::build($container);
+
+        $container->addCompilerPass(new RegisterOneDriveAdaptersPass());
     }
 
     public function loadExtension(array $config, ContainerConfigurator $container, ContainerBuilder $builder): void

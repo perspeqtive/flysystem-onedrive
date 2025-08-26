@@ -20,14 +20,12 @@
             <argument key="$httpClient" id="Symfony\Contracts\HttpClient\HttpClientInterface" type="service"/>
         </service>
 
-
         <service class="PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveFlysystemFactory"
                  id="perspeqtive.flysystem_one_drive.flysystem.one_drive_flysystem_factory">
             <argument key="$tokenProvider" id="perspeqtive.flysystem_one_drive.token.token_provider" type="service"/>
             <argument key="$httpClient" id="Symfony\Contracts\HttpClient\HttpClientInterface" type="service"/>
             <argument key="$options">%perspeqtive_flysystem.drives%</argument>
         </service>
-
 
     </services>
 </container>

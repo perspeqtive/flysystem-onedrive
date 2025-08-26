@@ -195,7 +195,7 @@ class OneDriveAdapter implements FilesystemAdapter
         throw UnableToSetVisibility::atLocation($path, 'Unsupported Operation');
     }
 
-    public function visibility(string $path): DirectoryAttributes
+    public function visibility(string $path): FileAttributes
     {
         throw UnableToRetrieveMetadata::visibility($path, 'Unsupported Operation');
     }
@@ -228,19 +228,19 @@ class OneDriveAdapter implements FilesystemAdapter
             ->execute();
     }
 
-    public function mimeType(string $path): DirectoryAttributes
+    public function mimeType(string $path): FileAttributes
     {
         $file = $this->getFile($path);
         return new DirectoryAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp(), $file->getFile()->getMimeType());
     }
 
-    public function lastModified(string $path): DirectoryAttributes
+    public function lastModified(string $path): FileAttributes
     {
         $file = $this->getDriveItem($path);
         return new DirectoryAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp());
     }
 
-    public function fileSize(string $path): DirectoryAttributes
+    public function fileSize(string $path): FileAttributes
     {
         $file = $this->getFile($path);
         return new DirectoryAttributes($path, $file->getSize());

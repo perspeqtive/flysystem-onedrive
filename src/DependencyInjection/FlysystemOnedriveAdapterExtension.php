@@ -20,25 +20,6 @@ class FlysystemOnedriveAdapterExtension extends Extension
         $config = $this->processConfiguration($configuration, $configs);
 
         $container->setParameter('perspeqtive_flysystem.drives', $this->buildConfig($config));
-        $this->buildAdapters($config, $container);
-
-    }
-
-    private function buildAdapters(array $configs, ContainerBuilder $container): void
-    {
-
-        $drives = $container->getParameter('perspeqtive_flysystem.drives');
-        foreach (array_keys($drives) as $name) {
-            $serviceId = sprintf('perspeqtive_flysystem.onedriveadapter.%s', $name);
-
-            $adapterDef = new Definition(OneDriveAdapter::class);
-            $adapterDef
-                ->setFactory([new Reference('perspeqtive_flysystem.onedrive.factory'), 'get'])
-                ->setArguments([$name])
-                ->setPublic(true);
-
-            $container->setDefinition($serviceId, $adapterDef);
-        }
     }
 
     private function buildConfig(array $config): array
