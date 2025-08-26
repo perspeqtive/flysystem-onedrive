@@ -11,7 +11,7 @@ readonly class TokenProvider
 {
 
     public function __construct(
-        private HttpClientInterface $client,
+        private HttpClientInterface $httpClient,
     ) {
     }
 
@@ -21,8 +21,8 @@ readonly class TokenProvider
     public function getToken(string $tenantId, string $clientId, string $clientSecret): Token
     {
 
-        $response = $this->client->request('POST', "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token", [
-            'body3' => [
+        $response = $this->httpClient->request('POST', "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token", [
+            'body' => [
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
                 'scope' => 'https://graph.microsoft.com/.default',
