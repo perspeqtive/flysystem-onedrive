@@ -181,7 +181,7 @@ class OneDriveAdapter implements FilesystemAdapter
         $dirName = basename($path);
 
         $this->graph
-            ->createRequest('POST', $this->buildItemUrl($parentPath) . '/children')
+            ->createRequest('POST', $this->buildItemUrl($parentPath) . ($parentPath != '.' ? ':' : '') . '/children')
             ->attachBody([
                 'name' => $dirName,
                 'folder' => new stdClass(),

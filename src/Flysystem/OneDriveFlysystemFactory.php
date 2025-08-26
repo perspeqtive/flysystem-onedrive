@@ -34,7 +34,7 @@ class OneDriveFlysystemFactory
      */
     public function get(string $identifier): OneDriveAdapter
     {
-        if ($this->filesystem[$identifier] instanceof OneDriveAdapter === false) {
+        if (($this->filesystem[$identifier] ?? null) instanceof OneDriveAdapter === false) {
             $this->filesystem[$identifier] = $this->generateFilesystem($identifier);
         }
 
@@ -48,11 +48,11 @@ class OneDriveFlysystemFactory
      */
     private function generateFilesystem(string $identifier): OneDriveAdapter
     {
-        if(!isset($this->options['drives'][$identifier])) {
+        if(!isset($this->options[$identifier])) {
             throw new RuntimeException("Unknown drive {$identifier}");
         }
-        $graph = $this->buildGraph($this->options['drives'][$identifier]);
-        $siteId = $this->getSiteId($graph, $this->options['drives'][$identifier]['site']);
+        $graph = $this->buildGraph($this->options[$identifier]);
+        $siteId = $this->getSiteId($graph, $this->options[$identifier]['drive']);
 
         return new OneDriveAdapter(
             $graph,
@@ -70,9 +70,9 @@ class OneDriveFlysystemFactory
     private function buildGraph(array $options): Graph
     {
         $token = $this->tokenProvider->getToken(
-            $options['tenantId'],
-            $options['clientId'],
-            $options['clientSecret']
+            $options['options']['tenant_id'],
+            $options['options']['client_id'],
+            $options['options']['client_secret']
         );
 
         $graph = new Graph();
@@ -85,18 +85,18 @@ class OneDriveFlysystemFactory
      * @throws GuzzleException
      * @throws GraphException
      */
-    private function getSiteId(Graph $graph, string $site): string
+    private function getSiteId(Graph $graph, string $siteName): string
     {
-        $sites = $graph->createRequest('GET', '/sites?search=' . urlencode($site))
+        $sites = $graph->createRequest('GET', '/sites?search=' . urlencode($siteName))
             ->setReturnType(Site::class)
             ->execute();
 
         foreach ($sites as $site) {
-            if ($site->getDisplayName() === $site) {
+            if ($site->getDisplayName() === $siteName) {
                 return $site->getId();
             }
         }
 
-        throw new RuntimeException('Site ' . $site . ' not found');
+        throw new RuntimeException('Site ' . $siteName . ' not found');
     }
 }
