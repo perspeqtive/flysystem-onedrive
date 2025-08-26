@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Justus\FlysystemOneDrive\Flysystem;
+namespace PERSPEQTIVE\FlysystemOneDrive\Flysystem;
 
 use Exception;
 use League\Flysystem\Config;

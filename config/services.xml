@@ -7,11 +7,11 @@
     <services>
         <service class="Microsoft\Graph\Graph" id="microsoft.graph.graph"/>
 
-        <service class="Justus\FlysystemOneDrive\OneDriveAdapter" id="justus.flysystem_one_drive.one_drive_adapter">
+        <service class="PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveAdapter" id="perspeqtive.flysystem_one_drive.flysystem.one_drive_adapter">
             <argument key="$graph" id="microsoft.graph.graph" type="service"/>
-            <argument key="$drive">%perspeqtive.flysystem.onedrive.drive%</argument>
+            <argument key="$drive">%perspeqtive_flysystem.onedrive.drive%</argument>
             <argument key="$httpClient" id="Symfony\Contracts\HttpClient\HttpClientInterface" type="service"/>
-            <argument key="$options">%perspeqtive.flysystem.onedrive.options%</argument>
+            <argument key="$options">%perspeqtive_flysystem.onedrive.options%</argument>
         </service>
 
     </services>

@@ -1,5 +1,5 @@
 {
-    "name": "justus/flysystem-onedrive",
+    "name": "perspeqtive/flysystem-onedrive",
     "description": "A flysystem driver for OneDrive that uses the Microsoft Graph API",
     "keywords": [
         "flysystem-onedrive",
@@ -11,20 +11,14 @@
     "license": "MIT",
     "autoload": {
         "psr-4": {
-            "Justus\\FlysystemOneDrive\\": "src"
+            "PERSPEQTIVE\\FlysystemOneDrive\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Justus\\FlysystemOneDrive\\Test\\": "tests"
+            "PERSPEQTIVE\\FlysystemOneDrive\\Test\\": "tests"
         }
     },
-    "authors": [
-        {
-            "name": "Justus Donner",
-            "email": "jdonner@doerffler.com"
-        }
-    ],
     "require": {
         "php": "^8.1",
         "league/flysystem": "^3.12",

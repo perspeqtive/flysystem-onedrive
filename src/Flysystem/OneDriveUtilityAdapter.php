@@ -1,6 +1,6 @@
 <?php
 
-namespace Justus\FlysystemOneDrive\Flysystem;
+namespace PERSPEQTIVE\FlysystemOneDrive\Flysystem;
 
 abstract class OneDriveUtilityAdapter
 {
