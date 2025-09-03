@@ -55,10 +55,11 @@ class OneDriveAdapter implements FilesystemAdapter
     protected function buildItemUrl(string $path): string
     {
         $path = trim($path, '/');
-        if ($path === '') {
+        if ($path === '' || $path === '.') {
             return $this->getDriveRootUrl();
         }
-        return $this->getDriveRootUrl() . ':/' . $path;
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $path)));
+        return $this->getDriveRootUrl() . ':/' . $encodedPath;
     }
 
     public function fileExists(string $path): bool
@@ -76,14 +77,14 @@ class OneDriveAdapter implements FilesystemAdapter
         try {
             $this->getDirectory($path);
             return true;
-        } catch (Exception) {
+        } catch (Exception $e) {
             return false;
         }
     }
 
     public function write(string $path, string $contents, Config $config = null): void
     {
-        if (strlen($contents) > 4_194_304) {
+        if (strlen($contents) > 4194304) {
             $stream = fopen('php://temp', 'r+');
             fwrite($stream, $contents);
             rewind($stream);
@@ -120,10 +121,11 @@ class OneDriveAdapter implements FilesystemAdapter
 
     protected function uploadChunk(string $uploadUrl, string $chunk, int $fileSize, int $firstByte): void
     {
-        $lastByte = $firstByte + strlen($chunk) - 1;
+        $chunkSize =  strlen($chunk);
+        $lastByte = $firstByte + $chunkSize - 1;
         $headers = [
             'Content-Range' => "bytes $firstByte-$lastByte/$fileSize",
-            'Content-Length' => (string) strlen($chunk),
+            'Content-Length' => (string) $chunkSize,
         ];
 
         $response = $this->httpClient->request('PUT', $uploadUrl, [
@@ -181,7 +183,7 @@ class OneDriveAdapter implements FilesystemAdapter
         $dirName = basename($path);
 
         $this->graph
-            ->createRequest('POST', $this->buildItemUrl($parentPath) . ($parentPath != '.' ? ':' : '') . '/children')
+            ->createRequest('POST', $this->buildItemUrl($parentPath) . ($parentPath === '.' ? '' : ':') . '/children')
             ->attachBody([
                 'name' => $dirName,
                 'folder' => new stdClass(),
@@ -230,20 +232,21 @@ class OneDriveAdapter implements FilesystemAdapter
 
     public function mimeType(string $path): FileAttributes
     {
+
         $file = $this->getFile($path);
-        return new DirectoryAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp(), $file->getFile()->getMimeType());
+        return new FileAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp(), $file->getFile()->getMimeType());
     }
 
     public function lastModified(string $path): FileAttributes
     {
         $file = $this->getDriveItem($path);
-        return new DirectoryAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp());
+        return new FileAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp());
     }
 
     public function fileSize(string $path): FileAttributes
     {
         $file = $this->getFile($path);
-        return new DirectoryAttributes($path, $file->getSize());
+        return new FileAttributes($path, $file->getSize());
     }
 
     public function getDriveItem(string $path): DriveItem
@@ -255,7 +258,7 @@ class OneDriveAdapter implements FilesystemAdapter
     }
 
     /**
-     * @return DirectoryAttributes
+     * @return iterable<StorageAttributes>
      * @throws \Exception
      */
     public function listContents(string $path, bool $deep = true): iterable
@@ -307,7 +310,7 @@ class OneDriveAdapter implements FilesystemAdapter
      * Konvertiert DriveItems in Flysystem StorageAttributes
      *
      * @param DriveItem[] $driveItems
-     * @return DirectoryAttributes
+     * @return StorageAttributes[]
      */
     protected function convertDriveItemsToStorageAttributes(array $driveItems): array
     {
@@ -328,16 +331,18 @@ class OneDriveAdapter implements FilesystemAdapter
         }, $driveItems);
     }
 
-    public function getFile(string $path): File
+    private function getFile(string $path): File
     {
+        $path = $this->buildItemUrl($path);
         return $this->graph
             ->createRequest('GET', $path)
             ->setReturnType(File::class)
             ->execute();
     }
 
-    public function getDirectory(string $path): Directory
+    private function getDirectory(string $path): Directory
     {
+        $path = $this->buildItemUrl($path);
         return $this->graph
             ->createRequest('GET', $path)
             ->setReturnType(Directory::class)
