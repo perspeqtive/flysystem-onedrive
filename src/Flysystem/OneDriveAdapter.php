@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PERSPEQTIVE\FlysystemOneDrive\Flysystem;
 
 use Exception;
+use GuzzleHttp\Exception\GuzzleException;
 use League\Flysystem\Config;
 use League\Flysystem\DirectoryAttributes;
 use League\Flysystem\FileAttributes;
@@ -13,21 +14,26 @@ use League\Flysystem\StorageAttributes;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToSetVisibility;
+use Microsoft\Graph\Exception\GraphException;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Model\Directory;
 use Microsoft\Graph\Model\DriveItem;
 use Microsoft\Graph\Model\File;
 use Microsoft\Graph\Model\UploadSession;
 use stdClass;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class OneDriveAdapter implements FilesystemAdapter
 {
-    protected Graph $graph;
-    protected string $drive;
-    protected array $options = [];
-    protected HttpClientInterface $httpClient;
+    private Graph $graph;
+    private string $drive;
+    private array $options = [];
+    private HttpClientInterface $httpClient;
 
+    /**
+     * @throws Exception
+     */
     public function __construct(Graph $graph, string $drive, HttpClientInterface $httpClient, array $options = [])
     {
         $this->graph = $graph;
@@ -47,12 +53,12 @@ class OneDriveAdapter implements FilesystemAdapter
         }
     }
 
-    protected function getDriveRootUrl(): string
+    private function getDriveRootUrl(): string
     {
         return '/' . $this->options['directory_type'] . '/' . $this->drive . '/root';
     }
 
-    protected function buildItemUrl(string $path): string
+    private function buildItemUrl(string $path): string
     {
         $path = trim($path, '/');
         if ($path === '' || $path === '.') {
@@ -77,7 +83,7 @@ class OneDriveAdapter implements FilesystemAdapter
         try {
             $this->getDirectory($path);
             return true;
-        } catch (Exception $e) {
+        } catch (Exception) {
             return false;
         }
     }
@@ -93,8 +99,6 @@ class OneDriveAdapter implements FilesystemAdapter
         }
 
         $path = trim($path, '/');
-        $parentItem = $this->buildItemUrl(dirname($path));
-        $fileName = basename($path);
 
         $this->graph
             ->createRequest('PUT', $this->buildItemUrl($path) . ':/content')
@@ -103,6 +107,11 @@ class OneDriveAdapter implements FilesystemAdapter
             ->execute();
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     * @throws TransportExceptionInterface
+     */
     public function writeStream(string $path, $contents, Config $config = null): void
     {
         $path = trim($path, '/');
@@ -119,7 +128,11 @@ class OneDriveAdapter implements FilesystemAdapter
         }
     }
 
-    protected function uploadChunk(string $uploadUrl, string $chunk, int $fileSize, int $firstByte): void
+    /**
+     * @throws TransportExceptionInterface
+     * @throws Exception
+     */
+    private function uploadChunk(string $uploadUrl, string $chunk, int $fileSize, int $firstByte): void
     {
         $chunkSize =  strlen($chunk);
         $lastByte = $firstByte + $chunkSize - 1;
@@ -138,7 +151,11 @@ class OneDriveAdapter implements FilesystemAdapter
         }
     }
 
-    protected function createUploadSession(string $path): UploadSession
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     */
+    private function createUploadSession(string $path): UploadSession
     {
         return $this->graph
             ->createRequest('POST', $this->buildItemUrl($path) . ':/createUploadSession')
@@ -167,6 +184,10 @@ class OneDriveAdapter implements FilesystemAdapter
         }
     }
 
+    /**
+     * @throws GraphException
+     * @throws GuzzleException
+     */
     public function delete(string $path): void
     {
         $this->graph->createRequest('DELETE', $this->buildItemUrl($path))->execute();
@@ -177,6 +198,10 @@ class OneDriveAdapter implements FilesystemAdapter
         $this->delete($path);
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     */
     public function createDirectory(string $path, ?Config $config = null): void
     {
         $parentPath = dirname($path);
@@ -202,6 +227,10 @@ class OneDriveAdapter implements FilesystemAdapter
         throw UnableToRetrieveMetadata::visibility($path, 'Unsupported Operation');
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     */
     public function move(string $source, string $destination, Config $config = null): void
     {
         $destinationPath = dirname($destination);
@@ -216,6 +245,10 @@ class OneDriveAdapter implements FilesystemAdapter
             ->execute();
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     */
     public function copy(string $source, string $destination, Config $config = null): void
     {
         $destinationPath = dirname($destination);
@@ -230,26 +263,41 @@ class OneDriveAdapter implements FilesystemAdapter
             ->execute();
     }
 
+    /**
+     * @throws GraphException
+     * @throws GuzzleException
+     */
     public function mimeType(string $path): FileAttributes
     {
-
-        $file = $this->getFile($path);
-        return new FileAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp(), $file->getFile()->getMimeType());
+        $driveItem = $this->getDriveItem($path);
+        return new FileAttributes($path, $driveItem->getSize(), null, $driveItem->getLastModifiedDateTime()->getTimestamp(), $driveItem->getFile()->getMimeType());
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     */
     public function lastModified(string $path): FileAttributes
     {
         $file = $this->getDriveItem($path);
         return new FileAttributes($path, $file->getSize(), null, $file->getLastModifiedDateTime()->getTimestamp());
     }
 
+    /**
+     * @throws GuzzleException
+     * @throws GraphException
+     */
     public function fileSize(string $path): FileAttributes
     {
-        $file = $this->getFile($path);
-        return new FileAttributes($path, $file->getSize());
+        $driveItem = $this->getDriveItem($path);
+        return new FileAttributes($path, $driveItem->getSize());
     }
 
-    public function getDriveItem(string $path): DriveItem
+    /**
+     * @throws GraphException
+     * @throws GuzzleException
+     */
+    private function getDriveItem(string $path): DriveItem
     {
         return $this->graph
             ->createRequest('GET', $this->buildItemUrl($path))
@@ -288,13 +336,10 @@ class OneDriveAdapter implements FilesystemAdapter
     }
 
     /**
-     * Hilfsmethode, um DriveItems mit Graph API abzurufen
-     *
-     * @param string $url
      * @return DriveItem[]
      * @throws \Microsoft\Graph\Exception\GraphException
      */
-    protected function fetchDriveItems(string $url): array
+    private function fetchDriveItems(string $url): array
     {
         $request = $this->graph->createCollectionRequest('GET', $url)->setReturnType(DriveItem::class);
         $items = [];
@@ -307,12 +352,10 @@ class OneDriveAdapter implements FilesystemAdapter
     }
 
     /**
-     * Konvertiert DriveItems in Flysystem StorageAttributes
-     *
      * @param DriveItem[] $driveItems
      * @return StorageAttributes[]
      */
-    protected function convertDriveItemsToStorageAttributes(array $driveItems): array
+    private function convertDriveItemsToStorageAttributes(array $driveItems): array
     {
         return array_map(function (DriveItem $item) {
             $isFile = $item->getFile() !== null;
@@ -331,6 +374,10 @@ class OneDriveAdapter implements FilesystemAdapter
         }, $driveItems);
     }
 
+    /**
+     * @throws GraphException
+     * @throws GuzzleException
+     */
     private function getFile(string $path): File
     {
         $path = $this->buildItemUrl($path);
@@ -340,6 +387,10 @@ class OneDriveAdapter implements FilesystemAdapter
             ->execute();
     }
 
+    /**
+     * @throws GraphException
+     * @throws GuzzleException
+     */
     private function getDirectory(string $path): Directory
     {
         $path = $this->buildItemUrl($path);
