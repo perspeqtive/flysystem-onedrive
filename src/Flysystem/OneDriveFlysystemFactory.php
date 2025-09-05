@@ -9,7 +9,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use Microsoft\Graph\Exception\GraphException;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Model\Site;
-use PERSPEQTIVE\FlysystemOneDrive\Token\TokenProvider;
+use PERSPEQTIVE\FlysystemOneDrive\Graph\GraphProviderInterface;
 use RuntimeException;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -22,7 +22,7 @@ class OneDriveFlysystemFactory
     private array $filesystem = [];
 
     public function __construct(
-        private readonly TokenProvider $tokenProvider,
+        private readonly GraphProviderInterface $graphProvider,
         private readonly HttpClientInterface $httpClient,
         private readonly array $options
     ) {
@@ -51,7 +51,8 @@ class OneDriveFlysystemFactory
         if(!isset($this->options[$identifier])) {
             throw new RuntimeException("Unknown drive {$identifier}");
         }
-        $graph = $this->buildGraph($this->options[$identifier]);
+
+        $graph = $this->graphProvider->getGraph();
         $siteId = $this->getSiteId($graph, $this->options[$identifier]['drive']);
 
         return new OneDriveAdapter(
@@ -62,23 +63,6 @@ class OneDriveFlysystemFactory
                 'directory_type' => 'sites'
             ]
         );
-    }
-
-    /**
-     * @throws TransportExceptionInterface
-     */
-    private function buildGraph(array $options): Graph
-    {
-        $token = $this->tokenProvider->getToken(
-            $options['options']['tenant_id'],
-            $options['options']['client_id'],
-            $options['options']['client_secret']
-        );
-
-        $graph = new Graph();
-        $graph->setAccessToken($token->token);
-
-        return $graph;
     }
 
     /**

@@ -25,6 +25,9 @@ class FlysystemOneDriveAdapterBundle extends AbstractBundle
         $container->import(__DIR__.'/../config/services.xml');
 
         $container->parameters()->set('perspeqtive_flysystem.drives', $this->buildConfig($config));
+        $container->parameters()->set('perspeqtive.flysystem_one_drive.credentials.tenantId',  $config['credentials']['tenant_id'] ?? '');
+        $container->parameters()->set('perspeqtive.flysystem_one_drive.credentials.clientId',  $config['credentials']['client_id'] ?? '');
+        $container->parameters()->set('perspeqtive.flysystem_one_drive.credentials.clientSecret',  $config['credentials']['client_secret'] ?? '');
     }
 
     private function buildConfig(array $config): array
