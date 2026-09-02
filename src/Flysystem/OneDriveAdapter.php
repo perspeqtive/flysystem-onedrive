@@ -12,10 +12,12 @@ use League\Flysystem\FileAttributes;
 use League\Flysystem\FilesystemAdapter;
 use League\Flysystem\StorageAttributes;
 use League\Flysystem\UnableToCopyFile;
+use League\Flysystem\UnableToGeneratePublicUrl;
 use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToReadFile;
 use League\Flysystem\UnableToRetrieveMetadata;
 use League\Flysystem\UnableToSetVisibility;
+use League\Flysystem\UrlGeneration\PublicUrlGenerator;
 use Microsoft\Graph\Exception\GraphException;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Model\DriveItem;
@@ -24,8 +26,14 @@ use stdClass;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class OneDriveAdapter implements FilesystemAdapter
+class OneDriveAdapter implements FilesystemAdapter, PublicUrlGenerator
 {
+    /**
+     * Key the webUrl of a listed item is exposed under in the extra metadata of the returned
+     * StorageAttributes. Reading it from a listing avoids one Graph request per item.
+     */
+    public const WEB_URL_METADATA_KEY = 'webUrl';
+
     private const DOWNLOAD_URL_PROPERTY = '@microsoft.graph.downloadUrl';
 
     private Graph $graph;
@@ -305,6 +313,27 @@ class OneDriveAdapter implements FilesystemAdapter
     }
 
     /**
+     * The webUrl of a driveItem is the permanent SharePoint/OneDrive address of the item. It always
+     * points at the current location, so it must never be cached across a move.
+     *
+     * @throws UnableToGeneratePublicUrl
+     */
+    public function publicUrl(string $path, Config $config): string
+    {
+        try {
+            $webUrl = $this->getDriveItem($path)->getWebUrl();
+        } catch (\Throwable $throwable) {
+            throw UnableToGeneratePublicUrl::dueToError($path, $throwable);
+        }
+
+        if (!is_string($webUrl) || '' === $webUrl) {
+            throw new UnableToGeneratePublicUrl('the driveItem exposes no webUrl', $path);
+        }
+
+        return $webUrl;
+    }
+
+    /**
      * The pre-authenticated download url is only exposed as an additional property of the
      * driveItem, it is not part of the typed model.
      *
@@ -395,9 +424,24 @@ class OneDriveAdapter implements FilesystemAdapter
                 StorageAttributes::ATTRIBUTE_LAST_MODIFIED => $item->getLastModifiedDateTime()?->getTimestamp(),
                 StorageAttributes::ATTRIBUTE_FILE_SIZE => $isFile ? $item->getSize() : null,
                 StorageAttributes::ATTRIBUTE_MIME_TYPE => $isFile ? $item->getFile()->getMimeType() : null,
+                StorageAttributes::ATTRIBUTE_EXTRA_METADATA => $this->buildExtraMetadata($item),
                 'visibility' => 'public',
             ]);
         }, $driveItems);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function buildExtraMetadata(DriveItem $item): array
+    {
+        $webUrl = $item->getWebUrl();
+
+        if (!is_string($webUrl) || '' === $webUrl) {
+            return [];
+        }
+
+        return [self::WEB_URL_METADATA_KEY => $webUrl];
     }
 
     /**

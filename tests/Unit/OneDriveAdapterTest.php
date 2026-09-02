@@ -4,9 +4,13 @@ declare(strict_types=1);
 
 namespace PERSPEQTIVE\FlysystemOneDrive\Test\Unit;
 
+use League\Flysystem\Config;
 use League\Flysystem\FileAttributes;
+use League\Flysystem\Filesystem;
+use League\Flysystem\UnableToGeneratePublicUrl;
 use League\Flysystem\UnableToMoveFile;
 use League\Flysystem\UnableToReadFile;
+use League\Flysystem\UrlGeneration\PublicUrlGenerator;
 use Microsoft\Graph\Graph;
 use Microsoft\Graph\Http\GraphCollectionRequest;
 use Microsoft\Graph\Http\GraphRequest;
@@ -48,6 +52,106 @@ final class OneDriveAdapterTest extends TestCase
         self::assertInstanceOf(FileAttributes::class, $contents[0]);
         self::assertSame('Musterfirma/Import/neu/Hersteller_Vinylboden.xlsx', $contents[0]->path());
         self::assertSame(4711, $contents[0]->fileSize());
+    }
+
+    public function testListContentsExposesTheWebUrlAsExtraMetadata(): void
+    {
+        $driveItem = new DriveItem([
+            'name' => '123456_1.jpg',
+            'file' => ['mimeType' => 'image/jpeg'],
+            'webUrl' => 'https://contoso.sharepoint.com/sites/Umgebung/Dokumente/Musterfirma/123456_1.jpg',
+            'parentReference' => ['path' => '/drives/b!someDriveId/root:/Musterfirma/Import/neu'],
+        ]);
+
+        $collectionRequest = $this->createMock(GraphCollectionRequest::class);
+        $collectionRequest->method('setReturnType')->willReturnSelf();
+        $collectionRequest->method('isEnd')->willReturnOnConsecutiveCalls(false, true);
+        $collectionRequest->method('getPage')->willReturn([$driveItem]);
+
+        $graph = $this->createMock(Graph::class);
+        $graph->method('createCollectionRequest')->willReturn($collectionRequest);
+
+        $contents = [...$this->createAdapter($graph)->listContents('Musterfirma/Import/neu', false)];
+
+        self::assertSame(
+            ['webUrl' => 'https://contoso.sharepoint.com/sites/Umgebung/Dokumente/Musterfirma/123456_1.jpg'],
+            $contents[0]->extraMetadata(),
+        );
+        self::assertSame(
+            OneDriveAdapter::WEB_URL_METADATA_KEY,
+            array_key_first($contents[0]->extraMetadata()),
+        );
+    }
+
+    public function testListContentsOmitsTheWebUrlWhenGraphDoesNotReportOne(): void
+    {
+        $driveItem = new DriveItem([
+            'name' => 'Musterfirma',
+            'folder' => ['childCount' => 1],
+        ]);
+
+        $collectionRequest = $this->createMock(GraphCollectionRequest::class);
+        $collectionRequest->method('setReturnType')->willReturnSelf();
+        $collectionRequest->method('isEnd')->willReturnOnConsecutiveCalls(false, true);
+        $collectionRequest->method('getPage')->willReturn([$driveItem]);
+
+        $graph = $this->createMock(Graph::class);
+        $graph->method('createCollectionRequest')->willReturn($collectionRequest);
+
+        $contents = [...$this->createAdapter($graph)->listContents('', false)];
+
+        self::assertSame([], $contents[0]->extraMetadata());
+    }
+
+    public function testPublicUrlReturnsTheWebUrlOfTheDriveItem(): void
+    {
+        $graph = $this->createGraphReturningDriveItem(new DriveItem([
+            'name' => '123456_1.jpg',
+            'file' => ['mimeType' => 'image/jpeg'],
+            'webUrl' => 'https://contoso.sharepoint.com/sites/Umgebung/Dokumente/Musterfirma/123456_1.jpg',
+        ]));
+
+        $url = $this->createAdapter($graph)->publicUrl('Musterfirma/Import/neu/123456_1.jpg', new Config());
+
+        self::assertSame(
+            'https://contoso.sharepoint.com/sites/Umgebung/Dokumente/Musterfirma/123456_1.jpg',
+            $url,
+        );
+    }
+
+    public function testPublicUrlFailsWhenTheDriveItemHasNoWebUrl(): void
+    {
+        $graph = $this->createGraphReturningDriveItem(new DriveItem(['name' => '123456_1.jpg']));
+
+        $this->expectException(UnableToGeneratePublicUrl::class);
+
+        $this->createAdapter($graph)->publicUrl('Musterfirma/Import/neu/123456_1.jpg', new Config());
+    }
+
+    public function testPublicUrlFailsWhenTheLookupFails(): void
+    {
+        $graph = $this->createMock(Graph::class);
+        $graph->method('createRequest')->willThrowException(new RuntimeException('boom'));
+
+        $this->expectException(UnableToGeneratePublicUrl::class);
+
+        $this->createAdapter($graph)->publicUrl('Musterfirma/Import/neu/123456_1.jpg', new Config());
+    }
+
+    public function testTheAdapterIsUsedAsPublicUrlGeneratorByTheFilesystem(): void
+    {
+        $graph = $this->createGraphReturningDriveItem(new DriveItem([
+            'name' => '123456_1.jpg',
+            'file' => ['mimeType' => 'image/jpeg'],
+            'webUrl' => 'https://contoso.sharepoint.com/sites/Umgebung/Dokumente/Musterfirma/123456_1.jpg',
+        ]));
+        $adapter = $this->createAdapter($graph);
+
+        self::assertInstanceOf(PublicUrlGenerator::class, $adapter);
+        self::assertSame(
+            'https://contoso.sharepoint.com/sites/Umgebung/Dokumente/Musterfirma/123456_1.jpg',
+            (new Filesystem($adapter))->publicUrl('Musterfirma/Import/neu/123456_1.jpg'),
+        );
     }
 
     public function testListContentsToleratesMissingMetadata(): void
