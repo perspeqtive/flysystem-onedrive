@@ -76,6 +76,54 @@ $disk->makeDirectory('test');
 ```php
 Storage::disk('onedrive')->makeDirectory('test');
 ```
+### Symfony Usage
+Register the bundle and configure it, e.g. in ``config/packages/flysystem_one_drive_adapter.yaml``:
+
+```yaml
+flysystem_one_drive_adapter:
+  credentials:
+    tenant_id: '%env(MICROSOFT_TENANT_ID)%'
+    client_id: '%env(MICROSOFT_CLIENT_ID)%'
+    client_secret: '%env(MICROSOFT_CLIENT_SECRET)%'
+  http:
+    # Seconds to wait for DNS, TCP connect and TLS handshake (default 1.0, 0 disables it).
+    # Running transfers (chunked uploads, downloads, long Graph calls) are not limited by it.
+    connect_timeout: 1.0
+    # Total seconds a single Graph API request may take (default 100, the Graph SDK default, 0 waits indefinitely).
+    request_timeout: 100
+  drives:
+    IndustrieUmgebung:
+      # Display name of the SharePoint site, used by the legacy site search when "site" is not configured.
+      drive: 'IndustrieUmgebung'
+      # Optional, strongly recommended: resolves the site by its path (GET /sites/{hostname}:/{path})
+      # instead of the slow and unreliable search endpoint (GET /sites?search=...).
+      # "path" may be decoded or percent-encoded. "site: ~" falls back to the search.
+      site:
+        hostname: 'contoso.sharepoint.com'
+        path: 'sites/IndustrieUmgebung'
+      # Passed to the OneDriveAdapter. "directory_type" is always "sites".
+      options:
+        chunk_size: 3276800 # must be a multiple of 327680 (320 KiB)
+```
+
+Every drive is available as the public service ``perspeqtive_flysystem.onedriveadapter.<name>``.
+
+The connect timeout applies to both transports used by the bundle:
+- Graph API requests (Guzzle) use the Guzzle ``connect_timeout`` request option.
+- Token requests, chunk uploads and downloads (Symfony HttpClient) use the
+  ``perspeqtive.flysystem_one_drive.http_client`` service, a decorator of
+  ``Symfony\Contracts\HttpClient\HttpClientInterface`` that aborts a request with a
+  ``TransportExceptionInterface`` when no connection could be established in time. The regular
+  idle ``timeout`` of the http client is not changed.
+
+Services intended for reuse:
+
+| Service id | Interface |
+| --- | --- |
+| ``perspeqtive.flysystem_one_drive.graph.graph_provider`` | ``PERSPEQTIVE\FlysystemOneDrive\Graph\GraphProviderInterface`` |
+| ``perspeqtive.flysystem_one_drive.site.site_id_resolver`` (alias ``PERSPEQTIVE\FlysystemOneDrive\Site\SiteIdResolverInterface``) | ``SiteIdResolverInterface::resolve(string $driveIdentifier): string`` resolves the site id of a configured drive and throws ``SiteNotFoundException`` / ``UnknownDriveException`` |
+| ``perspeqtive.flysystem_one_drive.http_client`` | ``Symfony\Contracts\HttpClient\HttpClientInterface`` with connect timeout |
+
 ### PHP Usage
 Usage in php without Laravel framework
 ```php

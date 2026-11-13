@@ -1,0 +1,60 @@
+services:
+    perspeqtive.flysystem_one_drive.http_client:
+        class: PERSPEQTIVE\FlysystemOneDrive\Http\ConnectTimeoutHttpClient
+        arguments:
+            $httpClient: '@Symfony\Contracts\HttpClient\HttpClientInterface'
+            $connectTimeout: '%perspeqtive.flysystem_one_drive.http.connect_timeout%'
+
+    perspeqtive.flysystem_one_drive.graph.guzzle_client_factory:
+        class: PERSPEQTIVE\FlysystemOneDrive\Graph\Http\GuzzleClientFactory
+        arguments:
+            $connectTimeout: '%perspeqtive.flysystem_one_drive.http.connect_timeout%'
+
+    perspeqtive.flysystem_one_drive.graph.graph_factory:
+        class: PERSPEQTIVE\FlysystemOneDrive\Graph\GraphFactory
+        arguments:
+            $clientFactory: '@perspeqtive.flysystem_one_drive.graph.guzzle_client_factory'
+            $requestTimeout: '%perspeqtive.flysystem_one_drive.http.request_timeout%'
+
+    microsoft.graph.graph:
+        class: Microsoft\Graph\Graph
+        factory: ['@perspeqtive.flysystem_one_drive.graph.graph_factory', 'create']
+
+    perspeqtive.flysystem_one_drive.flysystem.one_drive_adapter:
+        class: PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveAdapter
+        arguments:
+            $graph: '@microsoft.graph.graph'
+            $drive: '%perspeqtive_flysystem.onedrive.drive%'
+            $httpClient: '@perspeqtive.flysystem_one_drive.http_client'
+            $options: '%perspeqtive_flysystem.onedrive.options%'
+
+    perspeqtive.flysystem_one_drive.token.token_provider:
+        class: PERSPEQTIVE\FlysystemOneDrive\Token\TokenProvider
+        arguments:
+            $httpClient: '@perspeqtive.flysystem_one_drive.http_client'
+
+    perspeqtive.flysystem_one_drive.graph.graph_provider:
+        class: PERSPEQTIVE\FlysystemOneDrive\Graph\GraphProvider
+        arguments:
+            $tokenProvider: '@perspeqtive.flysystem_one_drive.token.token_provider'
+            $tenantId: '%perspeqtive.flysystem_one_drive.credentials.tenantId%'
+            $clientId: '%perspeqtive.flysystem_one_drive.credentials.clientId%'
+            $clientSecret: '%perspeqtive.flysystem_one_drive.credentials.clientSecret%'
+            $graphFactory: '@perspeqtive.flysystem_one_drive.graph.graph_factory'
+
+    perspeqtive.flysystem_one_drive.site.site_id_resolver:
+        class: PERSPEQTIVE\FlysystemOneDrive\Site\GraphSiteIdResolver
+        arguments:
+            $graphProvider: '@perspeqtive.flysystem_one_drive.graph.graph_provider'
+            $drives: '%perspeqtive_flysystem.drives%'
+
+    PERSPEQTIVE\FlysystemOneDrive\Site\SiteIdResolverInterface:
+        alias: perspeqtive.flysystem_one_drive.site.site_id_resolver
+
+    perspeqtive.flysystem_one_drive.flysystem.one_drive_flysystem_factory:
+        class: PERSPEQTIVE\FlysystemOneDrive\Flysystem\OneDriveFlysystemFactory
+        arguments:
+            $graphProvider: '@perspeqtive.flysystem_one_drive.graph.graph_provider'
+            $httpClient: '@perspeqtive.flysystem_one_drive.http_client'
+            $siteIdResolver: '@perspeqtive.flysystem_one_drive.site.site_id_resolver'
+            $options: '%perspeqtive_flysystem.drives%'

@@ -1,0 +1,29 @@
+# Changelog
+
+### Added
+- Connect timeout for all connections to Microsoft (`http.connect_timeout`, default 1 second). It only limits
+  DNS resolution, TCP connect and TLS handshake, running transfers are not affected.
+  - Graph API requests: `TimeoutAwareGraph`, `TimeoutAwareGraphRequest` and `TimeoutAwareGraphCollectionRequest`
+    create their Guzzle clients via `GuzzleClientFactory`, which adds `connect_timeout` to the Graph SDK settings.
+  - Symfony HttpClient (token, chunk upload, download): `ConnectTimeoutHttpClient` decorator, service
+    `perspeqtive.flysystem_one_drive.http_client`.
+- Configurable total timeout of Graph API requests (`http.request_timeout`, default 100 seconds as in the Graph SDK).
+- Path based site lookup via the optional drive config `site: { hostname, path }`, which avoids the slow
+  `/sites?search=` endpoint. Drives without `site` (or with `site: ~`) keep using the search. The `path` may be
+  decoded or percent-encoded.
+- `SiteIdResolverInterface` (service `perspeqtive.flysystem_one_drive.site.site_id_resolver`) to resolve the site id
+  of a configured drive, resolved ids are cached per service instance.
+- `GraphFactoryInterface`, `TokenProviderInterface`, `SiteNotFoundException`, `UnknownDriveException`,
+  `ConnectTimeoutException`.
+
+### Changed
+- The `options` of a drive are now passed to the `OneDriveAdapter` (`directory_type` is always `sites`).
+  An invalid `chunk_size` (not a multiple of 327680) now throws when the adapter is created.
+- The credentials are no longer merged into the drive options.
+- `GraphProvider` requires a `GraphFactoryInterface` and depends on `TokenProviderInterface`.
+  `refreshGraphToken()` creates the Graph instance if it does not exist yet instead of failing.
+- `OneDriveFlysystemFactory` requires a `SiteIdResolverInterface` and throws `UnknownDriveException`.
+- Service definitions moved from `config/services.xml` to `config/services.yaml` (XML is deprecated in Symfony 7.4).
+- `FlysystemOneDriveAdapterBundle`, `GraphProvider`, `TokenProvider` and `OneDriveFlysystemFactory` are final.
+- `TimeoutAwareGraphCollectionRequest::count()` throws a `GraphException` instead of triggering a notice when the
+  count is unavailable.

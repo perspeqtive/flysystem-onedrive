@@ -5,82 +5,70 @@ declare(strict_types=1);
 namespace PERSPEQTIVE\FlysystemOneDrive\Flysystem;
 
 use Exception;
-use GuzzleHttp\Exception\GuzzleException;
-use Microsoft\Graph\Exception\GraphException;
-use Microsoft\Graph\Graph;
-use Microsoft\Graph\Model\Site;
+use PERSPEQTIVE\FlysystemOneDrive\Exception\SiteNotFoundException;
+use PERSPEQTIVE\FlysystemOneDrive\Exception\UnknownDriveException;
 use PERSPEQTIVE\FlysystemOneDrive\Graph\GraphProviderInterface;
-use RuntimeException;
+use PERSPEQTIVE\FlysystemOneDrive\Site\SiteIdResolverInterface;
 use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
-class OneDriveFlysystemFactory
+use function array_merge;
+use function sprintf;
+
+final class OneDriveFlysystemFactory
 {
+    private const SITE_DIRECTORY_TYPE = 'sites';
+
     /**
-     * @var array<string,OneDriveAdapter>
+     * @var array<string, OneDriveAdapter>
      */
     private array $filesystem = [];
 
+    /**
+     * @param array<string, array{drive: string, options?: array<string, mixed>}> $options
+     */
     public function __construct(
         private readonly GraphProviderInterface $graphProvider,
         private readonly HttpClientInterface $httpClient,
-        private readonly array $options
+        private readonly SiteIdResolverInterface $siteIdResolver,
+        private readonly array $options,
     ) {
     }
 
     /**
-     * @throws GuzzleException
+     * @throws Exception
+     * @throws SiteNotFoundException
      * @throws TransportExceptionInterface
+     * @throws UnknownDriveException
      */
     public function get(string $identifier): OneDriveAdapter
     {
-        if (($this->filesystem[$identifier] ?? null) instanceof OneDriveAdapter === false) {
-            $this->filesystem[$identifier] = $this->generateFilesystem($identifier);
-        }
-
-        return $this->filesystem[$identifier];
+        return $this->filesystem[$identifier] ??= $this->generateFilesystem($identifier);
     }
 
     /**
      * @throws Exception
+     * @throws SiteNotFoundException
      * @throws TransportExceptionInterface
-     * @throws GuzzleException
+     * @throws UnknownDriveException
      */
     private function generateFilesystem(string $identifier): OneDriveAdapter
     {
-        if(!isset($this->options[$identifier])) {
-            throw new RuntimeException("Unknown drive {$identifier}");
+        if (!isset($this->options[$identifier])) {
+            throw new UnknownDriveException(sprintf('Unknown drive "%s".', $identifier));
         }
 
         $graph = $this->graphProvider->getGraph();
-        $siteId = $this->getSiteId($graph, $this->options[$identifier]['drive']);
+        $siteId = $this->siteIdResolver->resolve($identifier);
 
         return new OneDriveAdapter(
             $graph,
             $siteId . '/drive',
             $this->httpClient,
-            [
-                'directory_type' => 'sites'
-            ]
+            array_merge(
+                $this->options[$identifier]['options'] ?? [],
+                ['directory_type' => self::SITE_DIRECTORY_TYPE],
+            ),
         );
-    }
-
-    /**
-     * @throws GuzzleException
-     * @throws GraphException
-     */
-    private function getSiteId(Graph $graph, string $siteName): string
-    {
-        $sites = $graph->createRequest('GET', '/sites?search=' . urlencode($siteName))
-            ->setReturnType(Site::class)
-            ->execute();
-
-        foreach ($sites as $site) {
-            if ($site->getDisplayName() === $siteName) {
-                return $site->getId();
-            }
-        }
-
-        throw new RuntimeException('Site ' . $siteName . ' not found');
     }
 }
