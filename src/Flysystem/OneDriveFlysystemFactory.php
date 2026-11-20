@@ -15,7 +15,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 use function array_merge;
 use function sprintf;
 
-final class OneDriveFlysystemFactory
+final class OneDriveFlysystemFactory implements OneDriveFlysystemFactoryInterface
 {
     private const SITE_DIRECTORY_TYPE = 'sites';
 
